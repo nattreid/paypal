@@ -1,0 +1,7 @@
+web:
+    hooks:
+        payPal:
+            title: "PayPal"
+            clientId: "Client ID"
+            secret: "Secret token"
+            experienceProfileId: "Experience Profile Id"

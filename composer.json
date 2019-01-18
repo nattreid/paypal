@@ -1,0 +1,36 @@
+{
+  "name": "nattreid/paypal",
+  "description": "Paypal for Nette Framework",
+  "type": "library",
+  "license": [
+	"MIT"
+  ],
+  "authors": [
+	{
+	  "name": "Attreid",
+	  "email": "attreid@gmail.com"
+	}
+  ],
+  "require": {
+	"php": ">= 7.1",
+	"nette/di": "~2.4",
+	"nette/application": "~2.4",
+	"paypal/rest-api-sdk-php": "~1.13"
+  },
+  "require-dev": {
+	"nette/tester": "~1.7",
+	"tracy/tracy": "~2.4",
+	"nattreid/web-manager": "~1.0",
+	"nattreid/form": "~1.0"
+  },
+  "autoload": {
+	"classmap": [
+	  "src/"
+	]
+  },
+  "extra": {
+	"branch-alias": {
+	  "dev-master": "1.x-dev"
+	}
+  }
+}
