@@ -48,13 +48,13 @@ class PayPalConfig
 		$this->secret = $secret;
 	}
 
-	protected function setExperienceProfileId(?string $experienceProfileId): void
-	{
-		$this->experienceProfileId = $experienceProfileId;
-	}
-
 	protected function getExperienceProfileId(): ?string
 	{
 		return $this->experienceProfileId;
+	}
+
+	protected function setExperienceProfileId(?string $experienceProfileId): void
+	{
+		$this->experienceProfileId = $experienceProfileId;
 	}
 }

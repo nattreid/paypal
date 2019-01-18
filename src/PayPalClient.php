@@ -1,13 +1,11 @@
 <?php
 
-namespace Nattreid\PayPal;
+namespace Nattreid\PayPal\Control;
 
 use Exception;
+use NAttreid\PayPal\Helpers\Exceptions\CredentialsNotSetException;
 use NAttreid\PayPal\Helpers\Exceptions\PayPalException;
 use NAttreid\PayPal\Hooks\PayPalConfig;
-use Nette\Application\AbortException;
-use Nette\Application\UI\Control;
-use Nette\Application\UI\InvalidLinkException;
 use Nette\Http\Url;
 use PayPal\Api\Amount;
 use PayPal\Api\Details;
@@ -26,16 +24,12 @@ use PayPal\Exception\PayPalMissingCredentialException;
 use PayPal\Rest\ApiContext;
 
 /**
- * Class PayPal
+ * Class PayPalClient
  *
  * @author Attreid <attreid@gmail.com>
  */
-class PayPal extends Control
+class PayPalClient
 {
-	public $onCheckout = [];
-	public $onSuccess = [];
-	public $onCancel = [];
-	public $onError = [];
 
 	/** @var PayPalConfig */
 	private $config;
@@ -58,33 +52,57 @@ class PayPal extends Control
 	/** @var float|null */
 	private $tax;
 
+	/** @var RedirectUrls|null */
+	private $redirectUrls;
+
 	public function __construct(PayPalConfig $config)
 	{
-		parent::__construct();
-
 		$this->config = $config;
+
+		if (empty($this->config->clientId)) {
+			throw new CredentialsNotSetException('ClientId must be set');
+		} elseif (empty($this->config->secret)) {
+			throw new CredentialsNotSetException('Secret token must be set');
+		}
 
 		$auth = new OAuthTokenCredential($config->clientId, $config->secret);
 		$apiContext = new ApiContext($auth);
 		$this->apiContext = $apiContext;
 	}
 
-	public function setCurrency(string $currency): void
+	public function setCurrency(string $currency): self
 	{
 		$this->currency = $currency;
+		return $this;
 	}
 
-	protected function setShipping(float $shipping): void
+	public function setShipping(float $shipping): self
 	{
 		$this->shipping = $shipping;
+		return $this;
 	}
 
-	protected function setTax(float $tax): void
+	public function setTax(float $tax): self
 	{
 		$this->tax = $tax;
+		return $this;
 	}
 
-	public function addItem(string $name, int $quantity, float $price): void
+	public function setReturnUrl(string $returnUrl): self
+	{
+		$url = new Url($returnUrl);
+		$url->setQueryParameter('utm_nooverride', 1);
+		$this->getRedirectUrls()->setReturnUrl($url->getAbsoluteUrl());
+		return $this;
+	}
+
+	public function setCancelUrl(string $cancelUrl): self
+	{
+		$this->getRedirectUrls()->setCancelUrl($cancelUrl);
+		return $this;
+	}
+
+	public function addItem(string $name, int $quantity, float $price): self
 	{
 		$item = new Item;
 		$item
@@ -94,59 +112,15 @@ class PayPal extends Control
 			->setPrice($price);
 		$this->total += ($price * $quantity);
 		$this->items[] = $item;
+		return $this;
 	}
 
-	public function handleCheckout(): void
-	{
-		$payment = $this->createPayment();
 
-		$redirectUrls = new RedirectUrls();
-
-		$redirectUrls->setCancelUrl($this->link('//cancel!'));
-
-		$url = new Url($this->link('//return!'));
-		$url->setQueryParameter('utm_nooverride', 1);
-		$redirectUrls->setReturnUrl($url->getAbsoluteUrl());
-
-		$payment->setRedirectUrls($redirectUrls);
-
-		try {
-			$payment->create($this->apiContext);
-		} catch (Exception $ex) {
-			$this->parseException($ex);
-		}
-
-		$this->onCheckout($payment);
-
-		$approvalUrl = $payment->getApprovalLink();
-		$this->presenter->redirectUrl($approvalUrl);
-	}
-
-	public function handleReturn(): void
-	{
-		$paymentId = $this->presenter->getParameter('paymentId');
-		$payerId = $this->presenter->getParameter('PayerID');
-
-		try {
-			$payment = Payment::get($paymentId, $this->apiContext);
-			$execution = new PaymentExecution();
-			$execution->setPayerId($payerId);
-
-			$payment->execute($execution, $this->apiContext);
-			$paidPayment = Payment::get($paymentId, $this->apiContext);
-
-			$this->onSuccess($paidPayment);
-		} catch (Exception $ex) {
-			$this->parseException($ex);
-		}
-	}
-
-	public function handleCancel()
-	{
-		$this->onCancel();
-	}
-
-	private function createPayment(): Payment
+	/**
+	 * @return Payment
+	 * @throws PayPalException
+	 */
+	public function createPayment(): Payment
 	{
 		$payer = new Payer();
 		$payer->setPaymentMethod('paypal');
@@ -161,7 +135,45 @@ class PayPal extends Control
 
 		$payment->setTransactions([$this->createTransaction()]);
 
+		if ($this->redirectUrls !== null) {
+			$payment->setRedirectUrls($this->redirectUrls);
+		}
+
+		try {
+			$payment->create($this->apiContext);
+		} catch (Exception $ex) {
+			$this->parseException($ex);
+		}
+
 		return $payment;
+	}
+
+	/**
+	 * @param string $paymentId
+	 * @param string $payerId
+	 * @return Payment
+	 * @throws PayPalException
+	 */
+	public function paymentReturn(string $paymentId, string $payerId): Payment
+	{
+		try {
+			$payment = Payment::get($paymentId, $this->apiContext);
+			$execution = new PaymentExecution();
+			$execution->setPayerId($payerId);
+
+			$payment->execute($execution, $this->apiContext);
+			return Payment::get($paymentId, $this->apiContext);
+		} catch (Exception $ex) {
+			$this->parseException($ex);
+		}
+	}
+
+	private function getRedirectUrls(): RedirectUrls
+	{
+		if ($this->redirectUrls === null) {
+			$this->redirectUrls = new RedirectUrls();
+		}
+		return $this->redirectUrls;
 	}
 
 	private function createTransaction(): Transaction
@@ -194,7 +206,7 @@ class PayPal extends Control
 
 	/**
 	 * @param Exception $ex
-	 * @throws Exception
+	 * @throws Exception|PayPalException
 	 */
 	private function parseException(Exception $ex)
 	{
@@ -204,31 +216,11 @@ class PayPal extends Control
 			$ex instanceof PayPalMissingCredentialException ||
 			$ex instanceof PayPalConnectionException
 		) {
-			$exception = new PayPalException(
+			throw new PayPalException(
 				$ex->getMessage() . 'Data: ' . $ex->getData(),
 				$ex->getCode(),
 				$ex);
-
-			if (!$this->onError) {
-				throw $exception;
-			}
-
-			$this->onError($exception);
 		}
 		throw $ex;
 	}
-
-	public function render($attrs = array(), $text = "Pay")
-	{
-		$template = $this->template;
-		$template->setFile(__DIR__ . '/templates/default.latte');
-		$template->text = $text;
-		$template->attrs = $attrs;
-		$template->render();
-	}
-}
-
-interface IPayPalFactory
-{
-	public function create(): PayPal;
 }
