@@ -1,6 +1,6 @@
 <?php
 
-namespace Nattreid\PayPal\Control;
+namespace Nattreid\PayPal;
 
 use Exception;
 use NAttreid\PayPal\Helpers\Exceptions\CredentialsNotSetException;
@@ -171,10 +171,10 @@ class PayPalClient
 
 	/**
 	 * @param string $saleId
-	 * @return bool
+	 * @return bool|null true => verified, false => unverified, null => no change
 	 * @throws PayPalException
 	 */
-	public function checkPayment(string $saleId): bool
+	public function checkPayment(string $saleId): ?bool
 	{
 		try {
 			$sale = Sale::get($saleId, $this->apiContext);
@@ -192,6 +192,7 @@ class PayPalClient
 		} catch (Exception $ex) {
 			throw $this->parseException($ex);
 		}
+		return null;
 	}
 
 	private function getRedirectUrls(): RedirectUrls
