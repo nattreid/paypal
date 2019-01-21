@@ -113,7 +113,7 @@ class PayPalControl extends Control
 		$this->onError($ex);
 	}
 
-	public function render($attrs = array(), $text = "Pay")
+	public function render($text = "Pay", $attrs = [])
 	{
 		$template = $this->template;
 		$template->setFile(__DIR__ . '/templates/default.latte');

@@ -38,12 +38,12 @@ class PayPalConfig
 		$this->clientId = $clientId;
 	}
 
-	protected function getSecret(): ?int
+	protected function getSecret(): ?string
 	{
 		return $this->secret;
 	}
 
-	protected function setSecret(?int $secret): void
+	protected function setSecret(?string $secret): void
 	{
 		$this->secret = $secret;
 	}
