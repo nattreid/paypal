@@ -31,6 +31,9 @@ class PayPalClient
 	/** @var PayPalConfig */
 	private $config;
 
+	/** @var array */
+	private $sdkConfig;
+
 	/** @var ApiContext */
 	private $apiContext;
 
@@ -42,19 +45,10 @@ class PayPalClient
 	 * @param PayPalConfig $config
 	 * @throws CredentialsNotSetException
 	 */
-	public function __construct(PayPalConfig $config)
+	public function __construct(PayPalConfig $config, array $sdkConfig)
 	{
 		$this->config = $config;
-
-		if (empty($this->config->clientId)) {
-			throw new CredentialsNotSetException('ClientId must be set');
-		} elseif (empty($this->config->secret)) {
-			throw new CredentialsNotSetException('Secret token must be set');
-		}
-
-		$auth = new OAuthTokenCredential($config->clientId, $config->secret);
-		$apiContext = new ApiContext($auth);
-		$this->apiContext = $apiContext;
+		$this->sdkConfig = $sdkConfig;
 	}
 
 	public function setReturnUrl(string $returnUrl): self
@@ -101,7 +95,7 @@ class PayPalClient
 		}
 
 		try {
-			$payment->create($this->apiContext);
+			$payment->create($this->getApiContext());
 		} catch (Exception $ex) {
 			throw $this->parseException($ex);
 		}
@@ -118,12 +112,12 @@ class PayPalClient
 	public function paymentReturn(string $paymentId, string $payerId): Payment
 	{
 		try {
-			$payment = Payment::get($paymentId, $this->apiContext);
+			$payment = Payment::get($paymentId, $this->getApiContext());
 			$execution = new PaymentExecution();
 			$execution->setPayerId($payerId);
 
-			$payment->execute($execution, $this->apiContext);
-			return Payment::get($paymentId, $this->apiContext);
+			$payment->execute($execution, $this->getApiContext());
+			return Payment::get($paymentId, $this->getApiContext());
 		} catch (Exception $ex) {
 			throw $this->parseException($ex);
 		}
@@ -137,10 +131,10 @@ class PayPalClient
 	public function checkPayment(string $saleId): ?bool
 	{
 		try {
-			$sale = Sale::get($saleId, $this->apiContext);
+			$sale = Sale::get($saleId, $this->getApiContext());
 
 			if ($sale->getState() === 'completed') {
-				$payment = Payment::get($sale->getParentPayment(), $this->apiContext);
+				$payment = Payment::get($sale->getParentPayment(), $this->getApiContext());
 
 				switch ($payment->payer->status) {
 					case 'VERIFIED':
@@ -161,6 +155,23 @@ class PayPalClient
 			$this->redirectUrls = new RedirectUrls();
 		}
 		return $this->redirectUrls;
+	}
+
+	private function getApiContext(): ApiContext
+	{
+		if ($this->apiContext === null) {
+			if (empty($this->config->clientId)) {
+				throw new CredentialsNotSetException('ClientId must be set');
+			} elseif (empty($this->config->secret)) {
+				throw new CredentialsNotSetException('Secret token must be set');
+			}
+
+			$auth = new OAuthTokenCredential($this->config->clientId, $this->config->secret);
+			$apiContext = new ApiContext($auth);
+			$apiContext->setConfig($this->sdkConfig);
+			$this->apiContext = $apiContext;
+		}
+		return $this->apiContext;
 	}
 
 	/**

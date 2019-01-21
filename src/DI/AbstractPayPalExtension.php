@@ -43,7 +43,7 @@ abstract class AbstractPayPalExtension extends CompilerExtension
 
 		$builder->addDefinition($this->prefix('client'))
 			->setType(PayPalClient::class)
-			->setArguments([$payPal]);
+			->setArguments([$payPal, $config['sdkConfig']]);
 
 		$builder->addDefinition($this->prefix('control'))
 			->setFactory(PayPalControl::class)
