@@ -1,22 +1,18 @@
 <?php
 
-namespace Nattreid\PayPal;
+namespace NAttreid\PayPal;
 
 use Exception;
 use NAttreid\PayPal\Helpers\Exceptions\CredentialsNotSetException;
 use NAttreid\PayPal\Helpers\Exceptions\PayPalException;
+use NAttreid\PayPal\Helpers\Transaction;
 use NAttreid\PayPal\Hooks\PayPalConfig;
 use Nette\Http\Url;
-use PayPal\Api\Amount;
-use PayPal\Api\Details;
-use PayPal\Api\Item;
-use PayPal\Api\ItemList;
 use PayPal\Api\Payer;
 use PayPal\Api\Payment;
 use PayPal\Api\PaymentExecution;
 use PayPal\Api\RedirectUrls;
 use PayPal\Api\Sale;
-use PayPal\Api\Transaction;
 use PayPal\Auth\OAuthTokenCredential;
 use PayPal\Exception\PayPalConfigurationException;
 use PayPal\Exception\PayPalConnectionException;
@@ -38,24 +34,14 @@ class PayPalClient
 	/** @var ApiContext */
 	private $apiContext;
 
-	/** @var string */
-	private $currency;
-
-	/** @var Item[] */
-	private $items = [];
-
-	/** @var float */
-	private $total = 0;
-
-	/** @var float|null */
-	private $shipping;
-
-	/** @var float|null */
-	private $tax;
-
 	/** @var RedirectUrls|null */
 	private $redirectUrls;
 
+	/**
+	 * PayPalClient constructor.
+	 * @param PayPalConfig $config
+	 * @throws CredentialsNotSetException
+	 */
 	public function __construct(PayPalConfig $config)
 	{
 		$this->config = $config;
@@ -69,24 +55,6 @@ class PayPalClient
 		$auth = new OAuthTokenCredential($config->clientId, $config->secret);
 		$apiContext = new ApiContext($auth);
 		$this->apiContext = $apiContext;
-	}
-
-	public function setCurrency(string $currency): self
-	{
-		$this->currency = $currency;
-		return $this;
-	}
-
-	public function setShipping(float $shipping): self
-	{
-		$this->shipping = $shipping;
-		return $this;
-	}
-
-	public function setTax(float $tax): self
-	{
-		$this->tax = $tax;
-		return $this;
 	}
 
 	public function setReturnUrl(string $returnUrl): self
@@ -103,25 +71,17 @@ class PayPalClient
 		return $this;
 	}
 
-	public function addItem(string $name, int $quantity, float $price): self
+	public function createTransaction(): Transaction
 	{
-		$item = new Item;
-		$item
-			->setName($name)
-			->setCurrency($this->currency)
-			->setQuantity($quantity)
-			->setPrice($price);
-		$this->total += ($price * $quantity);
-		$this->items[] = $item;
-		return $this;
+		return new Transaction();
 	}
 
-
 	/**
+	 * @param Transaction $transaction
 	 * @return Payment
 	 * @throws PayPalException
 	 */
-	public function createPayment(): Payment
+	public function createPayment(Transaction $transaction): Payment
 	{
 		$payer = new Payer();
 		$payer->setPaymentMethod('paypal');
@@ -134,7 +94,7 @@ class PayPalClient
 			$payment->setExperienceProfileId($this->config->experienceProfileId);
 		}
 
-		$payment->setTransactions([$this->createTransaction()]);
+		$payment->setTransactions([$transaction->getTransaction()]);
 
 		if ($this->redirectUrls !== null) {
 			$payment->setRedirectUrls($this->redirectUrls);
@@ -201,34 +161,6 @@ class PayPalClient
 			$this->redirectUrls = new RedirectUrls();
 		}
 		return $this->redirectUrls;
-	}
-
-	private function createTransaction(): Transaction
-	{
-		$itemLists = new ItemList();
-		$itemLists->setItems($this->items);
-
-		$details = new Details();
-		$details->setSubtotal($this->total);
-		if ($this->shipping !== null) {
-			$details->setShipping($this->shipping);
-		}
-		if ($this->tax !== null) {
-			$details->setTax($this->tax);
-		}
-
-		$amount = new Amount();
-		$amount
-			->setCurrency($this->currency)
-			->setTotal($this->total + ($this->shipping ?? 0) + ($this->tax ?? 0))
-			->setDetails($details);
-
-		$transaction = new Transaction();
-		$transaction
-			->setAmount($amount)
-			->setItemList($itemLists);
-
-		return $transaction;
 	}
 
 	/**

@@ -1,9 +1,13 @@
 <?php
 
-namespace Nattreid\PayPal\Control;
+namespace NAttreid\PayPal\Control;
 
 use NAttreid\PayPal\Helpers\Exceptions\PayPalException;
+use NAttreid\PayPal\Helpers\Transaction;
+use NAttreid\PayPal\PayPalClient;
+use Nette\Application\AbortException;
 use Nette\Application\UI\Control;
+use Nette\Application\UI\InvalidLinkException;
 
 /**
  * Class PayPalControl
@@ -20,32 +24,41 @@ class PayPalControl extends Control
 	/** @var PayPalClient */
 	private $client;
 
+	/** @var Transaction */
+	private $transaction;
+
 	public function __construct(PayPalClient $client)
 	{
 		parent::__construct();
 		$this->client = $client;
+		$this->transaction = $client->createTransaction();
 	}
 
 	public function setCurrency(string $currency): void
 	{
-		$this->client->setCurrency($currency);
+		$this->transaction->setCurrency($currency);
 	}
 
 	protected function setShipping(float $shipping): void
 	{
-		$this->client->setShipping($shipping);
+		$this->transaction->setShipping($shipping);
 	}
 
 	protected function setTax(float $tax): void
 	{
-		$this->client->setTax($tax);
+		$this->transaction->setTax($tax);
 	}
 
 	public function addItem(string $name, int $quantity, float $price): void
 	{
-		$this->client->addItem($name, $quantity, $price);
+		$this->transaction->addItem($name, $quantity, $price);
 	}
 
+	/**
+	 * @throws PayPalException
+	 * @throws AbortException
+	 * @throws InvalidLinkException
+	 */
 	public function handleCheckout(): void
 	{
 		try {
@@ -53,7 +66,7 @@ class PayPalControl extends Control
 				->setCancelUrl($this->link('//cancel!'))
 				->setReturnUrl($this->link('//return!'));
 
-			$payment = $this->client->createPayment();
+			$payment = $this->client->createPayment($this->transaction);
 
 			$this->onCheckout($payment);
 			$this->presenter->redirectUrl($payment->getApprovalLink());
@@ -62,6 +75,9 @@ class PayPalControl extends Control
 		}
 	}
 
+	/**
+	 * @throws PayPalException
+	 */
 	public function handleReturn(): void
 	{
 		$paymentId = $this->presenter->getParameter('paymentId');
@@ -73,6 +89,7 @@ class PayPalControl extends Control
 			$transactions = $payment->getTransactions();
 			$relatedResources = $transactions[0]->getRelatedResources();
 			$sale = $relatedResources[0]->getSale();
+
 			$this->onSuccess($payment, $sale);
 		} catch (PayPalException $ex) {
 			$this->callError($ex);
@@ -84,6 +101,10 @@ class PayPalControl extends Control
 		$this->onCancel();
 	}
 
+	/**
+	 * @param PayPalException $ex
+	 * @throws PayPalException
+	 */
 	private function callError(PayPalException $ex)
 	{
 		if (!$this->onError) {

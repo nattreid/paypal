@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace NAttreid\PayPal\DI;
 
-use Nattreid\PayPal\Control\IPayPalControlFactory;
-use Nattreid\PayPal\Control\PayPalClient;
-use Nattreid\PayPal\Control\PayPalControl;
+use NAttreid\PayPal\Control\IPayPalControlFactory;
+use NAttreid\PayPal\Control\PayPalControl;
 use NAttreid\PayPal\Hooks\PayPalConfig;
+use NAttreid\PayPal\PayPalClient;
 use Nette\DI\CompilerExtension;
 
 /**
- * Class AbstractComgateExtension
+ * Class AbstractPayPalExtension
  *
  * @author Attreid <attreid@gmail.com>
  */
@@ -42,7 +42,7 @@ abstract class AbstractPayPalExtension extends CompilerExtension
 		$payPal = $this->prepareConfig($config);
 
 		$builder->addDefinition($this->prefix('client'))
-			->setFactory(PayPalClient::class)
+			->setType(PayPalClient::class)
 			->setArguments([$payPal]);
 
 		$builder->addDefinition($this->prefix('control'))
