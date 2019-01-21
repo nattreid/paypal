@@ -52,10 +52,10 @@ protected function createComponentButton(): \Nattreid\PayPal\Control\PayPalContr
         );
     }
 
-    $control->onSuccess[] = function (Payment $paid, Sale $sale) {
+    $control->onSuccess[] = function (Payment $paid, Sale $sale, bool $pending) {
         $this->order->paypalTransactionId = $sale->getId();
 
-        if ($sale->getState() == 'pending') {
+        if ($pending) {
             $this->order->setState(Pending::class);
         } else {
             $this->order->setState(Payed::class);

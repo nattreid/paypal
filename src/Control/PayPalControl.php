@@ -90,7 +90,9 @@ class PayPalControl extends Control
 			$relatedResources = $transactions[0]->getRelatedResources();
 			$sale = $relatedResources[0]->getSale();
 
-			$this->onSuccess($payment, $sale);
+			$pending = $sale->getState() == 'pending';
+
+			$this->onSuccess($payment, $sale, $pending);
 		} catch (PayPalException $ex) {
 			$this->callError($ex);
 		}
