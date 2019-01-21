@@ -69,7 +69,11 @@ class PayPalControl extends Control
 
 		try {
 			$payment = $this->client->paymentReturn($paymentId, $payerId);
-			$this->onSuccess($payment);
+
+			$transactions = $payment->getTransactions();
+			$relatedResources = $transactions[0]->getRelatedResources();
+			$sale = $relatedResources[0]->getSale();
+			$this->onSuccess($payment, $sale);
 		} catch (PayPalException $ex) {
 			$this->callError($ex);
 		}

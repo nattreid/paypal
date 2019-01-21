@@ -15,6 +15,7 @@ use PayPal\Api\Payer;
 use PayPal\Api\Payment;
 use PayPal\Api\PaymentExecution;
 use PayPal\Api\RedirectUrls;
+use PayPal\Api\Sale;
 use PayPal\Api\Transaction;
 use PayPal\Auth\OAuthTokenCredential;
 use PayPal\Exception\PayPalConfigurationException;
@@ -142,7 +143,7 @@ class PayPalClient
 		try {
 			$payment->create($this->apiContext);
 		} catch (Exception $ex) {
-			$this->parseException($ex);
+			throw $this->parseException($ex);
 		}
 
 		return $payment;
@@ -164,7 +165,32 @@ class PayPalClient
 			$payment->execute($execution, $this->apiContext);
 			return Payment::get($paymentId, $this->apiContext);
 		} catch (Exception $ex) {
-			$this->parseException($ex);
+			throw $this->parseException($ex);
+		}
+	}
+
+	/**
+	 * @param string $saleId
+	 * @return bool
+	 * @throws PayPalException
+	 */
+	public function checkPayment(string $saleId): bool
+	{
+		try {
+			$sale = Sale::get($saleId, $this->apiContext);
+
+			if ($sale->getState() === 'completed') {
+				$payment = Payment::get($sale->getParentPayment(), $this->apiContext);
+
+				switch ($payment->payer->status) {
+					case 'VERIFIED':
+						return true;
+					case 'UNVERIFIED':
+						return false;
+				}
+			}
+		} catch (Exception $ex) {
+			throw $this->parseException($ex);
 		}
 	}
 
@@ -206,9 +232,9 @@ class PayPalClient
 
 	/**
 	 * @param Exception $ex
-	 * @throws Exception|PayPalException
+	 * @return Exception|PayPalException
 	 */
-	private function parseException(Exception $ex)
+	private function parseException(Exception $ex): Exception
 	{
 		if (
 			$ex instanceof PayPalConfigurationException ||
@@ -216,11 +242,11 @@ class PayPalClient
 			$ex instanceof PayPalMissingCredentialException ||
 			$ex instanceof PayPalConnectionException
 		) {
-			throw new PayPalException(
+			return new PayPalException(
 				$ex->getMessage() . 'Data: ' . $ex->getData(),
 				$ex->getCode(),
 				$ex);
 		}
-		throw $ex;
+		return $ex;
 	}
 }
