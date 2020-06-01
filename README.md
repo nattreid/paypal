@@ -94,4 +94,13 @@ public function paypalCheckPayments(): void
         }
     }
 }
+
+public function refund(): void
+{
+    $this->payPalClient->refund(
+        'paypalPaymentId'
+        5.55,
+        'USD'
+    );
+}
 ```
