@@ -8,10 +8,12 @@ use NAttreid\PayPal\Helpers\Exceptions\PayPalException;
 use NAttreid\PayPal\Helpers\Transaction;
 use NAttreid\PayPal\Hooks\PayPalConfig;
 use Nette\Http\Url;
+use PayPal\Api\Amount;
 use PayPal\Api\Payer;
 use PayPal\Api\Payment;
 use PayPal\Api\PaymentExecution;
 use PayPal\Api\RedirectUrls;
+use PayPal\Api\RefundRequest;
 use PayPal\Api\Sale;
 use PayPal\Auth\OAuthTokenCredential;
 use PayPal\Exception\PayPalConfigurationException;
@@ -147,6 +149,26 @@ class PayPalClient
 			throw $this->parseException($ex);
 		}
 		return null;
+	}
+
+	public function refund(string $saleId, float $price, string $currency): bool
+	{
+		$sale = new Sale();
+		$sale->setId($saleId);
+
+		$amt = new Amount();
+		$amt->setTotal($price)
+			->setCurrency($currency);
+
+		$refund = new RefundRequest();
+		$refund->setAmount($amt);
+
+		try {
+			$refund = $sale->refundSale($refund, $this->getApiContext());
+			return $refund->state === 'completed';
+		} catch (Exception $ex) {
+			throw $this->parseException($ex);
+		}
 	}
 
 	private function getRedirectUrls(): RedirectUrls
