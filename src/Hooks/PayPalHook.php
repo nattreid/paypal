@@ -35,7 +35,7 @@ class PayPalHook extends HookFactory
 
 		$form->addText('clientId', 'webManager.web.hooks.payPal.clientId')
 			->setDefaultValue($this->configurator->payPal->clientId);
-		$form->addText('secret', 'webManager.web.hooks.payPal.clientSecret')
+		$form->addText('secret', 'webManager.web.hooks.payPal.secret')
 			->setDefaultValue($this->configurator->payPal->secret);
 		$form->addText('experienceProfileId', 'webManager.web.hooks.payPal.experienceProfileId')
 			->setDefaultValue($this->configurator->payPal->experienceProfileId);
